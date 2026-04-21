@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>지방선거 여론조사 부동층 가중치 분석기</title>
+  
+  <!-- Tailwind CSS (디자인 프레임워크) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- React & ReactDOM -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  
+  <!-- Babel (브라우저에서 React 문법을 실행하기 위한 도구) -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body class="bg-gray-50 font-sans">
+  <!-- React 앱이 렌더링될 영역 -->
+  <div id="root"></div>
+
+  <!-- React 및 컴포넌트 로직 -->
+  <script type="text/babel">
+    const { useState, useMemo } = React;
+
+    // 아이콘 컴포넌트 정의 (lucide-react 대체)
+    const CalculatorIcon = ({ className }) => (
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <rect width="16" height="20" x="4" y="2" rx="2"/>
+        <line x1="8" x2="16" y1="6" y2="6"/>
+        <line x1="16" x2="16" y1="14" y2="18"/>
+        <path d="M16 10h.01"/><path d="M12 10h.01"/><path d="M8 10h.01"/>
+        <path d="M12 14h.01"/><path d="M8 14h.01"/><path d="M12 18h.01"/><path d="M8 18h.01"/>
+      </svg>
+    );
+
+    const Settings2Icon = ({ className }) => (
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <path d="M20 7h-9"/><path d="M14 17H5"/><circle cx="17" cy="7" r="3"/><circle cx="8" cy="17" r="3"/>
+      </svg>
+    );
+
+    const DownloadIcon = ({ className }) => (
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+        <polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>
+      </svg>
+    );
+
+    const App = () => {
+      // 초기 데이터 설정 (지역 및 가중치)
+      const initialData = [
+        { region: '서울', weightDP: 6, weightPPP: 4 },
+        { region: '경기', weightDP: 6, weightPPP: 4 },
+        { region: '인천', weightDP: 6, weightPPP: 4 },
+        { region: '충남', weightDP: 6, weightPPP: 4 },
+        { region: '충북', weightDP: 6, weightPPP: 4 },
+        { region: '대전', weightDP: 6, weightPPP: 4 },
+        { region: '세종', weightDP: 6, weightPPP: 4 },
+        { region: '전북', weightDP: 8, weightPPP: 2 },
+        { region: '전남광주', weightDP: 8, weightPPP: 2 },
+        { region: '제주', weightDP: 7, weightPPP: 3 },
+        { region: '강원', weightDP: 5, weightPPP: 5 },
+        { region: '경북', weightDP: 3, weightPPP: 7 },
+        { region: '대구', weightDP: 3, weightPPP: 7 },
+        { region: '울산', weightDP: 4, weightPPP: 6 },
+        { region: '경남', weightDP: 4, weightPPP: 6 },
+        { region: '부산', weightDP: 4, weightPPP: 6 },
+      ].map(item => ({
+        ...item,
+        dp: '', ppp: '', reform: '', rebuild: '', other: ''
+      }));
+
+      const [data, setData] = useState(initialData);
+      const [isWeightEditable, setIsWeightEditable] = useState(false);
+
+      // 입력값 변경 핸들러
+      const handleInputChange = (index, field, value) => {
+        const regex = /^[0-9]*\.?[0-9]*$/;
+        if (value === '' || regex.test(value)) {
+          const newData = [...data];
+          newData[index][field] = value;
+          setData(newData);
+        }
+      };
+
+      // 가중치 변경 핸들러
+      const handleWeightChange = (index, field, value) => {
+        const regex = /^[0-9]*\.?[0-9]*$/;
+        if (value === '' || regex.test(value)) {
+          const newData = [...data];
+          newData[index][field] = value;
+          setData(newData);
+        }
+      };
+
+      // 실시간 계산된 데이터 반환
+      const calculatedData = useMemo(() => {
+        return data.map(row => {
+          const dp = parseFloat(row.dp) || 0;
+          const ppp = parseFloat(row.ppp) || 0;
+          const reform = parseFloat(row.reform) || 0;
+          const rebuild = parseFloat(row.rebuild) || 0;
+          const other = parseFloat(row.other) || 0;
+          
+          const weightDP = parseFloat(row.weightDP) || 0;
+          const weightPPP = parseFloat(row.weightPPP) || 0;
+
+          const sum = dp + ppp + reform + rebuild + other;
+          const undecided = sum > 0 ? Math.max(0, 100 - sum) : 0; 
+
+          const totalWeight = weightDP + weightPPP;
+          const dpRatio = totalWeight > 0 ? weightDP / totalWeight : 0;
+          const pppRatio = totalWeight > 0 ? weightPPP / totalWeight : 0;
+
+          const adjDP = dp + (undecided * dpRatio);
+          const adjPPP = ppp + (undecided * pppRatio);
+
+          return {
+            ...row,
+            undecided: undecided,
+            adjDP: adjDP,
+            adjPPP: adjPPP
+          };
+        });
+      }, [data]);
+
+      // 엑셀(CSV) 다운로드 기능
+      const exportToCSV = () => {
+        const headers = [
+          '지역', '가중치(민:국)', '민주당(%)', '국민의힘(%)', '개혁신당(%)', '조국혁신당(%)', '기타(%)', 
+          '부동층(자동계산%)', '보정_민주당(%)', '보정_국민의힘(%)'
+        ];
+        
+        const csvRows = calculatedData.map(row => [
+          row.region,
+          `"${row.weightDP}:${row.weightPPP}"`,
+          row.dp || 0,
+          row.ppp || 0,
+          row.reform || 0,
+          row.rebuild || 0,
+          row.other || 0,
+          row.undecided.toFixed(2),
+          row.adjDP.toFixed(2),
+          row.adjPPP.toFixed(2)
+        ]);
+
+        const csvContent = "\uFEFF" + headers.join(',') + '\n' + csvRows.map(e => e.join(',')).join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        link.setAttribute("href", url);
+        link.setAttribute("download", "지방선거_여론조사_가중치분석.csv");
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      };
+
+      // 임시 데이터 채우기
+      const fillTestData = () => {
+        const testData = data.map(row => ({
+          ...row,
+          dp: (Math.random() * 20 + 30).toFixed(1),
+          ppp: (Math.random() * 20 + 25).toFixed(1),
+          reform: (Math.random() * 5).toFixed(1),
+          rebuild: (Math.random() * 5).toFixed(1),
+          other: (Math.random() * 3).toFixed(1),
+        }));
+        setData(testData);
+      };
+
+      const resetData = () => {
+        setData(initialData);
+      };
+
+      return (
+        <div className="min-h-screen p-4 md:p-8">
+          <div className="max-w-7xl mx-auto bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200">
+            
+            {/* 헤더 섹션 */}
+            <div className="bg-slate-800 text-white p-6 flex flex-col md:flex-row justify-between items-center gap-4">
+              <div className="flex items-center gap-3">
+                <CalculatorIcon className="w-8 h-8 text-blue-400" />
+                <div>
+                  <h1 className="text-2xl font-bold">지방선거 여론조사 부동층 가중치 분석기</h1>
+                  <p className="text-sm text-slate-300 mt-1">부동층 = 100 - (타 후보 지지율 합) / 지역별 가중치에 따라 자동 분배됩니다.</p>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2 justify-end">
+                <button 
+                  onClick={() => setIsWeightEditable(!isWeightEditable)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                    isWeightEditable ? 'bg-purple-600 hover:bg-purple-500 text-white' : 'bg-purple-100 hover:bg-purple-200 text-purple-700'
+                  }`}
+                >
+                  <Settings2Icon className="w-4 h-4" />
+                  {isWeightEditable ? '가중치 설정 완료' : '가중치 임의 설정'}
+                </button>
+                <button 
+                  onClick={fillTestData}
+                  className="px-4 py-2 bg-slate-600 hover:bg-slate-500 text-white rounded-md text-sm font-medium transition-colors"
+                >
+                  임의 데이터 채우기
+                </button>
+                <button 
+                  onClick={resetData}
+                  className="px-4 py-2 bg-slate-600 hover:bg-slate-500 text-white rounded-md text-sm font-medium transition-colors"
+                >
+                  초기화
+                </button>
+                <button 
+                  onClick={exportToCSV}
+                  className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-md text-sm font-medium transition-colors"
+                >
+                  <DownloadIcon className="w-4 h-4" />
+                  엑셀(CSV) 다운로드
+                </button>
+              </div>
+            </div>
+
+            {/* 테이블 섹션 */}
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-center border-collapse">
+                <thead>
+                  <tr className="bg-slate-100 text-slate-700 border-b-2 border-slate-300">
+                    <th className="p-3 border-r border-slate-200 font-semibold bg-slate-200 w-24">지역</th>
+                    <th className="p-3 border-r border-slate-200 font-semibold bg-slate-200 w-24 text-xs">가중치<br/>(민:국)</th>
+                    
+                    <th className="p-3 border-r border-slate-200 font-semibold text-blue-700 bg-blue-50">민주당(%)</th>
+                    <th className="p-3 border-r border-slate-200 font-semibold text-red-700 bg-red-50">국민의힘(%)</th>
+                    <th className="p-3 border-r border-slate-200 font-semibold text-orange-600 bg-orange-50">개혁신당(%)</th>
+                    <th className="p-3 border-r border-slate-200 font-semibold text-sky-700 bg-sky-50">조국혁신당(%)</th>
+                    <th className="p-3 border-r border-slate-200 font-semibold text-gray-600 bg-gray-100">기타(%)</th>
+                    
+                    <th className="p-3 border-r border-slate-200 font-bold text-slate-800 bg-yellow-50 shadow-inner">부동층(%)<br/><span className="text-[10px] font-normal text-slate-500">자동계산</span></th>
+                    <th className="p-3 border-r border-slate-200 font-bold text-white bg-blue-600">보정 민주당</th>
+                    <th className="p-3 font-bold text-white bg-red-600">보정 국민의힘</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {calculatedData.map((row, index) => (
+                    <tr key={index} className="border-b border-slate-200 hover:bg-slate-50 transition-colors">
+                      <td className="p-2 border-r border-slate-200 font-medium text-slate-800 bg-slate-50">{row.region}</td>
+                      <td className="p-1 border-r border-slate-200 text-slate-600 font-medium bg-white">
+                        {isWeightEditable ? (
+                          <div className="flex items-center justify-center gap-1">
+                            <input 
+                              type="text" 
+                              value={row.weightDP} 
+                              onChange={(e) => handleWeightChange(index, 'weightDP', e.target.value)}
+                              className="w-8 p-1 text-center border border-purple-300 rounded focus:outline-none focus:ring-1 focus:ring-purple-500"
+                            />
+                            <span>:</span>
+                            <input 
+                              type="text" 
+                              value={row.weightPPP} 
+                              onChange={(e) => handleWeightChange(index, 'weightPPP', e.target.value)}
+                              className="w-8 p-1 text-center border border-purple-300 rounded focus:outline-none focus:ring-1 focus:ring-purple-500"
+                            />
+                          </div>
+                        ) : (
+                          `${row.weightDP} : ${row.weightPPP}`
+                        )}
+                      </td>
+                      
+                      <td className="p-1 border-r border-slate-200 bg-blue-50/30">
+                        <input 
+                          type="text" 
+                          value={row.dp} 
+                          onChange={(e) => handleInputChange(index, 'dp', e.target.value)}
+                          className="w-full p-2 text-center border border-blue-200 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                          placeholder="0.0"
+                        />
+                      </td>
+                      <td className="p-1 border-r border-slate-200 bg-red-50/30">
+                        <input 
+                          type="text" 
+                          value={row.ppp} 
+                          onChange={(e) => handleInputChange(index, 'ppp', e.target.value)}
+                          className="w-full p-2 text-center border border-red-200 rounded focus:outline-none focus:ring-2 focus:ring-red-500 bg-white"
+                          placeholder="0.0"
+                        />
+                      </td>
+                      <td className="p-1 border-r border-slate-200 bg-orange-50/30">
+                        <input 
+                          type="text" 
+                          value={row.reform} 
+                          onChange={(e) => handleInputChange(index, 'reform', e.target.value)}
+                          className="w-full p-2 text-center border border-orange-200 rounded focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white"
+                          placeholder="0.0"
+                        />
+                      </td>
+                      <td className="p-1 border-r border-slate-200 bg-sky-50/30">
+                        <input 
+                          type="text" 
+                          value={row.rebuild} 
+                          onChange={(e) => handleInputChange(index, 'rebuild', e.target.value)}
+                          className="w-full p-2 text-center border border-sky-200 rounded focus:outline-none focus:ring-2 focus:ring-sky-500 bg-white"
+                          placeholder="0.0"
+                        />
+                      </td>
+                      <td className="p-1 border-r border-slate-200 bg-gray-50/50">
+                        <input 
+                          type="text" 
+                          value={row.other} 
+                          onChange={(e) => handleInputChange(index, 'other', e.target.value)}
+                          className="w-full p-2 text-center border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-gray-500 bg-white"
+                          placeholder="0.0"
+                        />
+                      </td>
+
+                      <td className="p-2 border-r border-slate-200 font-bold text-slate-800 bg-yellow-50/50">
+                        {row.undecided > 0 ? row.undecided.toFixed(2) : '-'}
+                      </td>
+                      <td className="p-2 border-r border-slate-200 font-bold text-blue-700 bg-blue-50 text-lg">
+                        {row.adjDP > 0 ? row.adjDP.toFixed(2) : '-'}
+                      </td>
+                      <td className="p-2 font-bold text-red-700 bg-red-50 text-lg">
+                        {row.adjPPP > 0 ? row.adjPPP.toFixed(2) : '-'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            
+            <div className="p-4 bg-slate-50 text-sm text-slate-600 border-t border-slate-200">
+              <ul className="list-disc pl-5 space-y-1">
+                <li>각 정당의 지지율(%)을 입력하면 <strong>부동층 비율</strong>(100에서 입력된 모든 후보 지지율을 뺀 값)이 자동으로 계산됩니다.</li>
+                <li><strong>보정 민주당/국민의힘</strong>은 기존 지지율에 "부동층 × 해당 지역 가중치"를 더한 최종 예측 수치입니다.</li>
+                <li>우측 상단의 <strong>[임의 데이터 채우기]</strong>를 누르시면 가상 데이터가 입력되어 수식이 작동하는 모습을 바로 확인하실 수 있습니다.</li>
+                <li>입력이 완료된 후 <strong>[엑셀 다운로드]</strong> 버튼을 누르시면 이 화면 그대로 엑셀에서 열어볼 수 있는 CSV 파일이 저장됩니다.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    // React 애플리케이션 마운트
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
